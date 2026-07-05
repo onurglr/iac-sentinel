@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+plan.tfplan
+plan.json
+
+# Secrets / local env
+.env
+
+# Learning contract — local only, not for the public repo
+CLAUDE.md

@@ -1,0 +1,39 @@
+name: iac-sentinel
+
+# Trigger: run on every PR open/update. This is what makes the tool part of the
+# team's workflow instead of a script someone remembers to run.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+# Least privilege: grant the job token only the permissions it actually needs.
+permissions:
+  contents: read          # check out the repo
+  pull-requests: write    # post/update the review comment
+  models: read            # call GitHub Models (the LLM)
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install iac-sentinel
+        run: pip install -e .
+
+      # DEMO: run against a committed sample plan so CI needs no cloud creds.
+      # In real use, replace this step with:
+      #   terraform init
+      #   terraform plan -out=plan.tfplan
+      #   terraform show -json plan.tfplan > plan.json
+      # and point --plan at plan.json.
+      - name: Review plan and comment on PR
+        env:
+          # The auto-provided job token; serves both models:read and PR write.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: iac-sentinel --plan tests/fixtures/contextual_plan.json --comment
