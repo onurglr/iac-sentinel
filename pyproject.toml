@@ -1,0 +1,27 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "iac-sentinel"
+version = "0.1.0"
+description = "AI-powered Terraform plan reviewer that posts findings as PR comments."
+requires-python = ">=3.11"
+dependencies = [
+    "openai>=1.40",        # OpenAI-compatible client; used to talk to GitHub Models
+    "pydantic>=2.0",       # schema/contract for structured LLM output
+    "python-dotenv>=1.0",  # load secrets (GITHUB_TOKEN) from a local .env file
+]
+
+# Console command: `iac-sentinel` -> iac_sentinel.cli:main
+[project.scripts]
+iac-sentinel = "iac_sentinel.cli:main"
+
+# Dev-only tools: not needed to run the tool, only to develop/test it.
+# Installed via:  pip install -e ".[dev]"
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+# Tell the build backend where the package lives (src/ layout).
+[tool.hatch.build.targets.wheel]
+packages = ["src/iac_sentinel"]
