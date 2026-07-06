@@ -20,16 +20,35 @@ def analyze(changes: list[ResourceChange]) -> ReviewResult:
     """Run rules + LLM and merge into a single, severity-sorted ReviewResult."""
     rule_findings = apply_rules(changes)
 
-    # LLM runs independently but is told what the rules already caught.
-    llm_result = review_changes(changes, known=rule_findings)
+    # Defense in depth: the deterministic floor (rules) must survive any failure of
+    # the LLM ceiling. Isolate the LLM boundary so a network/auth/rate-limit/schema
+    # error degrades to rules-only instead of sinking the whole review.
+    llm_available = True
+    llm_findings: list[Finding] = []
+    try:
+        llm_findings = review_changes(changes, known=rule_findings).findings
+    except Exception:
+        # Deliberately broad: the LLM can fail many ways and none should crash CI.
+        # We record only THAT it failed (a boolean), never the exception text, which
+        # could leak secrets (tokens/URLs) into a public PR comment.
+        llm_available = False
 
-    all_findings: list[Finding] = rule_findings + llm_result.findings
+    all_findings = rule_findings + llm_findings
     all_findings.sort(key=lambda f: _SEVERITY_ORDER.get(f.severity, 99))
 
-    summary = (
-        f"{len(all_findings)} finding(s): "
-        f"{len(rule_findings)} from rules, {len(llm_result.findings)} from LLM."
-        if all_findings
-        else "Reviewed, no risks found."
+    if not llm_available:
+        summary = (
+            f"LLM review unavailable; showing deterministic rule findings only "
+            f"({len(rule_findings)})."
+        )
+    elif all_findings:
+        summary = (
+            f"{len(all_findings)} finding(s): "
+            f"{len(rule_findings)} from rules, {len(llm_findings)} from LLM."
+        )
+    else:
+        summary = "Reviewed, no risks found."
+
+    return ReviewResult(
+        findings=all_findings, summary=summary, llm_available=llm_available
     )
-    return ReviewResult(findings=all_findings, summary=summary)

@@ -19,6 +19,13 @@ _SEVERITY_BADGE = {"high": "🔴 HIGH", "medium": "🟠 MEDIUM", "low": "🟡 LO
 def _header(result: ReviewResult) -> str:
     """One-line summary so a busy reviewer gets the verdict without reading details."""
     if not result.findings:
+        if not result.llm_available:
+            # No rule findings AND the LLM never ran -> NOT a clean bill of health.
+            # Say so, or a partial review masquerades as "all clear" (silent failure).
+            return (
+                "## 🛡️ iac-sentinel\n\n⚠️ **Review incomplete — LLM unavailable.** "
+                "No deterministic-rule risks found, but the AI review did not run."
+            )
         return "## 🛡️ iac-sentinel\n\n✅ **No risks found.** Reviewed and clean."
 
     counts: dict[str, int] = {}
@@ -31,6 +38,13 @@ def _header(result: ReviewResult) -> str:
 def render_markdown(result: ReviewResult) -> str:
     """Turn a ReviewResult into the final PR comment body (marker included)."""
     lines = [COMMENT_MARKER, _header(result)]
+
+    # Surface a degraded run even when rules DID find things: the review is partial.
+    if not result.llm_available and result.findings:
+        lines.append(
+            "\n> ⚠️ **The AI review did not run** (LLM unavailable). Findings below "
+            "are from deterministic rules only — treat this as a partial review."
+        )
 
     for f in result.findings:  # already severity-sorted by analyze()
         badge = _SEVERITY_BADGE.get(f.severity, f.severity.upper())

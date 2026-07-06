@@ -22,8 +22,19 @@ class Finding(BaseModel):
     recommendation: str = Field(description="Concrete fix")
 
 
-class ReviewResult(BaseModel):
-    """The full review outcome. Empty findings == reviewed and clean."""
+class LLMReview(BaseModel):
+    """The LLM's structured output only. Separate from ReviewResult so the model's
+    schema stays clean and never carries our orchestration flags (e.g. llm_available)."""
 
     findings: list[Finding]
     summary: str = Field(description="One-sentence overall summary")
+
+
+class ReviewResult(BaseModel):
+    """The final, merged review outcome (rules + LLM). Empty findings == clean."""
+
+    findings: list[Finding]
+    summary: str = Field(description="One-sentence overall summary")
+    # False when the LLM boundary failed and we degraded to rules-only. Drives the
+    # "review is partial" warning so a failure is surfaced, never silently swallowed.
+    llm_available: bool = True

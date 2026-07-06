@@ -45,6 +45,12 @@ terraform plan (JSON)
   caught **every time**, independent of the LLM. The LLM is the *ceiling*: it
   reasons about novel and contextual risks the rules can't enumerate. Neither
   layer alone is trusted.
+- **Graceful degradation (fail-safe).** The LLM call is isolated in the
+  orchestrator: if the model is down, rate-limited, or unauthenticated, the
+  review **does not crash** — it falls back to the deterministic rules and posts
+  a **visible** "AI review did not run — partial review" warning instead of
+  silently masquerading as a clean bill of health. The failure reason is never
+  echoed into the public comment (it could leak tokens/URLs).
 - **Provider-agnostic.** All model access lives behind one seam (`llm.py`).
   The default provider is **GitHub Models** (OpenAI-compatible); switching
   providers touches only that file — no vendor lock-in.
@@ -108,5 +114,5 @@ no network. The LLM boundary is deliberately kept out of unit tests.
 ## Architecture decisions
 
 See [`DECISIONS.md`](./DECISIONS.md) for the reasoned ADRs (input format, structured
-output, the provider seam, the hybrid rules+LLM design, and more).
+output, the provider seam, the hybrid rules+LLM design, graceful degradation, and more).
 ""
