@@ -18,22 +18,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      # Dogfooding: run iac-sentinel through its OWN composite action (`uses: ./`)
+      # instead of manual setup/install/run steps. This is the exact entry point
+      # other repos use — so our own CI proves the action works before we tag v1.
+      # The action handles setup-python + install internally; `token` defaults to
+      # github.token, which the permissions block above scopes to models:read +
+      # pull-requests:write.
+      #
+      # DEMO: we point at a committed sample plan so CI needs no cloud creds. In a
+      # real repo the caller would generate the plan first (terraform init/plan/show)
+      # and pass plan-path: plan.json — see README, "Why you generate the plan".
+      - uses: ./
         with:
-          python-version: "3.12"
-
-      - name: Install iac-sentinel
-        run: pip install -e .
-
-      # DEMO: run against a committed sample plan so CI needs no cloud creds.
-      # In real use, replace this step with:
-      #   terraform init
-      #   terraform plan -out=plan.tfplan
-      #   terraform show -json plan.tfplan > plan.json
-      # and point --plan at plan.json.
-      - name: Review plan and comment on PR
-        env:
-          # The auto-provided job token; serves both models:read and PR write.
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: iac-sentinel --plan tests/fixtures/contextual_plan.json --comment
+          plan-path: tests/fixtures/contextual_plan.json

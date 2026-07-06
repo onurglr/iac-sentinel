@@ -1,0 +1,56 @@
+# Turns this repo into a reusable GitHub Action. Other repos consume it with:
+#   uses: onurglr/iac-sentinel@v1
+#
+# Design boundary: this action REVIEWS a terraform plan; it does NOT generate one.
+# Plan generation needs the caller's cloud credentials — so the caller runs
+# `terraform plan` in their own workflow (their context, their secrets) and passes
+# us the resulting JSON. We stay cloud-agnostic and never touch cloud credentials.
+name: "iac-sentinel"
+description: "AI-assisted Terraform plan reviewer — deterministic rules + LLM, posted as a PR comment."
+author: "onurglr"
+
+branding:
+  icon: "shield"
+  color: "blue"
+
+# The action's public API: what callers may set under `with:`.
+inputs:
+  plan-path:
+    description: "Path to the terraform plan JSON (from `terraform show -json`)."
+    required: false
+    default: "plan.json"
+  fail-on-high:
+    description: "Fail the job (exit 1) when any high-severity finding is present."
+    required: false
+    default: "false"
+  token:
+    description: >-
+      GitHub token used for GitHub Models (models:read) and posting the PR comment
+      (pull-requests:write). Defaults to the caller job's token.
+    required: false
+    default: ${{ github.token }}
+
+runs:
+  using: "composite"
+  steps:
+    # Provide the Python toolchain so the caller's runner needs no setup.
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+
+    # Install iac-sentinel from the action's own checked-out code.
+    - name: Install iac-sentinel
+      shell: bash
+      run: pip install "${{ github.action_path }}"
+
+    - name: Review plan and comment
+      shell: bash
+      env:
+        # GITHUB_REPOSITORY is auto-set to the CALLER's repo, so the comment lands
+        # on the caller's PR. PR_NUMBER comes from the pull_request event context.
+        GITHUB_TOKEN: ${{ inputs.token }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+      run: |
+        FLAG=""
+        if [ "${{ inputs.fail-on-high }}" = "true" ]; then FLAG="--fail-on-high"; fi
+        iac-sentinel --plan "${{ inputs.plan-path }}" --comment $FLAG
