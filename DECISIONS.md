@@ -85,3 +85,17 @@ Kısa, mülakatta savunulabilir kararlar. Her biri: **karar → neden → altern
 **Alternatifler:** (a) Hatayı yakalamamak → bir sağlayıcı arızası tüm CI'ı kırar, bariz riskler bile raporlanmaz (reddedildi). (b) Yakala ama sessiz geç → daha da tehlikeli; kullanıcı kısmi review'a tam güvenir. (c) Dar `except` (sadece bilinen tipler) → LLM çok farklı şekilde patlar, biri kaçarsa yine çöker; bu yüzden geniş `except` + görünür sinyal tercih edildi.
 
 **Trade-off:** Geniş `except Exception` gerçek programlama hatalarını da yutabilir — bunu, hatayı kullanıcıya görünür kılarak dengeliyoruz (sessiz değil). Ayrıca **exception metni** yoruma yazılmaz, yalnızca "çalışmadı" bilgisi — çünkü hata mesajı token/URL sızdırabilir ve PR'lar herkese açıktır (güvenlik).
+
+---
+
+## ADR-008 — Paketleme: composite GitHub Action + "kendi planını getir" sınırı
+
+**Karar:** Araç bir **composite Action** (`action.yml`) olarak paketlenir; başka repolar `uses: onurglr/iac-sentinel@v1` ile tek satırda kullanır. Public API üç input: `plan-path`, `fail-on-high`, `token`. **Kritik sınır:** action bir plan'ı *inceler*, *üretmez* — gerçek `terraform plan`'ı kullanan repo kendi workflow'unda, kendi bulut secret'larıyla üretip bize JSON olarak verir.
+
+**Neden (paketleme):** Mevcut workflow zaten "setup-python → pip install → run" yapıyor; composite action bunu aynen paketler — sıfır ekstra infra, şeffaf, öğrenilen şeyi ürünleştirir. Docker/JS action'a göre en düşük sürtünme.
+
+**Neden (plan sınırı):** Plan üretmek bulut kimlik bilgisi + backend/state + provider auth ister; bunlar cloud'a göre değişir ve **kullanan reponun** sorumluluğudur. Action plan üretseydi, başka reponun **bulut anahtarlarını tutması** gerekirdi — bir güvenlik aracı için yanlış konum (attack surface + blast radius büyür). Planı kullanıcıya bırakmak bizi **cloud-agnostic** ve **credential-free** tutar. tfsec/checkov de böyle yapar (plan üretmez, tüketir).
+
+**Alternatifler:** (a) Docker container action → tam izolasyon/tekrarlanabilirlik ama Dockerfile + imaj yayınlama + yavaş cold start; v2'ye bırakıldı. (b) JS action → araç Python, doğal değil. (c) Action'ın planı kendi üretmesi → bulut credential'ı bize taşır, her cloud/backend'i desteklemek zorunda kalırız (reddedildi).
+
+**Trade-off:** Composite, runner'da toolchain olmasına güvenir — bunu `setup-python`'ı action içine koyarak garantiliyoruz. Plan'ı kullanıcıya bırakmak, kullananın workflow'una birkaç adım ekler; karşılığında biz hiçbir bulut anahtarına dokunmayız. Marketplace'te `@v1` için git tag + release gerekir (yayın adımı).

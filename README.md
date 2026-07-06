@@ -81,17 +81,61 @@ iac-sentinel --plan plan.json --comment
 Set `GITHUB_TOKEN` (a token with `models: read`, plus `pull-requests: write` when
 using `--comment`). Locally, put it in a `.env` file — see `.env.example`.
 
-## In CI
+## Use it in your repo (as a GitHub Action)
 
-`.github/workflows/iac-sentinel.yml` runs on every pull request and comments
-automatically. The job token needs:
+iac-sentinel ships as a composite Action, so any repo can run it in one step:
 
 ```yaml
+name: terraform-review
+on: pull_request
+
 permissions:
   contents: read
-  pull-requests: write
-  models: read
+  pull-requests: write   # post the review comment
+  models: read           # call GitHub Models (the LLM)
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # YOU generate the plan — with YOUR cloud credentials, in YOUR context.
+      - uses: hashicorp/setup-terraform@v3
+      - run: terraform init
+      - run: terraform plan -out=tfplan
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      - run: terraform show -json tfplan > plan.json
+
+      # iac-sentinel reviews the plan — it never sees your cloud credentials.
+      - uses: onurglr/iac-sentinel@v1
+        with:
+          plan-path: plan.json
+          fail-on-high: "true"
 ```
+
+### Why *you* generate the plan (and we don't)
+
+**iac-sentinel reviews a plan; it deliberately does not generate one.** Generating a
+real `terraform plan` requires the caller's cloud credentials, backend/state access,
+and provider setup — all of which vary per cloud and belong to *your* repo, not this
+tool. If the action generated the plan, it would have to **hold your cloud
+credentials** — the wrong place for a security tool to sit. So you run
+`terraform plan` in your own workflow (your context, your secrets) and hand us the
+resulting JSON. The payoff: iac-sentinel stays **cloud-agnostic**, **credential-free**,
+and keeps a **small attack surface**. This mirrors how tools like tfsec and checkov
+consume plan output rather than producing it. See ADR-008 in
+[`DECISIONS.md`](./DECISIONS.md).
+
+### Action inputs
+
+| Input | Default | Description |
+|-------|---------|-------------|
+| `plan-path` | `plan.json` | Path to the plan JSON (`terraform show -json`). |
+| `fail-on-high` | `false` | Exit 1 (fail the job) if any high-severity finding is present. |
+| `token` | `${{ github.token }}` | Token for GitHub Models + PR comment. |
 
 ## Development
 
