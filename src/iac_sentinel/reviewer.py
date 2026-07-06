@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 
 from .llm import complete_structured
-from .models import Finding, ReviewResult
+from .models import Finding, LLMReview
 from .plan_parser import ResourceChange
 
 # System prompt = the reviewer's fixed identity and rules (same on every call).
@@ -50,16 +50,16 @@ def _build_user_prompt(
 
 def review_changes(
     changes: list[ResourceChange], known: list[Finding] | None = None
-) -> ReviewResult:
-    """Send the changes to the LLM and return a validated ReviewResult."""
+) -> LLMReview:
+    """Send the changes to the LLM and return its validated structured output."""
     known = known or []
 
     # Nothing reviewable -> don't spend a token; return a clean result directly.
     if not changes:
-        return ReviewResult(findings=[], summary="No reviewable resource changes.")
+        return LLMReview(findings=[], summary="No reviewable resource changes.")
 
     return complete_structured(
         system=SYSTEM_PROMPT,
         user=_build_user_prompt(changes, known),
-        output_format=ReviewResult,
+        output_format=LLMReview,
     )

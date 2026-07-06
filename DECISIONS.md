@@ -73,3 +73,15 @@ Kısa, mülakatta savunulabilir kararlar. Her biri: **karar → neden → altern
 **Alternatifler:** (a) Sadece LLM → tekrarlanamaz, false negative riski. (b) Sadece kurallar → yeni/bağlamsal riskleri kaçırır. (c) Kuralları LLM'e ipucu verip raporlamayı LLM'e bırakmak → yine LLM'e bağımlı (reddedildi).
 
 **Trade-off:** Kural bakımı (yeni desen = yeni fonksiyon) ve iki katmanın birleştirme/dupe yönetimi. Dupe'yi LLM'i haberdar ederek azaltıyoruz; kusursuz değil, ileride adres+konu bazlı dedup eklenebilir.
+
+---
+
+## ADR-007 — Graceful degradation: LLM hatası deterministik tabanı düşürmez
+
+**Karar:** LLM çağrısı `analyze()` içinde `try/except` ile izole edilir. LLM patlarsa (network / auth / rate-limit / şema) program çökmez: kural bulgularıyla devam eder, `ReviewResult.llm_available=False` işaretlenir ve yoruma **görünür** bir "AI review çalışmadı, bu kısmi bir inceleme" uyarısı basılır. LLM'in şeması (`LLMReview`) nihai domain tipinden (`ReviewResult`) ayrıldı ki orkestrasyon bayrağı modelin şemasına sızmasın.
+
+**Neden:** ADR-006 "taban tutar" diye *iddia* ediyordu ama implementasyon bunu tutmuyordu — LLM exception'ı yukarı kabarıp bütün review'ı çökertiyor, hesaplanmış kural bulguları da çöpe gidiyordu. Tasarım niyeti ≠ kod. `try/except` bu boşluğu kapatır: deterministik taban artık LLM tavanının çökmesinden gerçekten izole. Kritik ikinci parça: hata **sessizce yutulmaz** — sessiz bozulma (silent degradation), "hepsi temiz" gibi görünüp aslında yarısı incelenmemiş bir sonuç doğurur = false sense of security.
+
+**Alternatifler:** (a) Hatayı yakalamamak → bir sağlayıcı arızası tüm CI'ı kırar, bariz riskler bile raporlanmaz (reddedildi). (b) Yakala ama sessiz geç → daha da tehlikeli; kullanıcı kısmi review'a tam güvenir. (c) Dar `except` (sadece bilinen tipler) → LLM çok farklı şekilde patlar, biri kaçarsa yine çöker; bu yüzden geniş `except` + görünür sinyal tercih edildi.
+
+**Trade-off:** Geniş `except Exception` gerçek programlama hatalarını da yutabilir — bunu, hatayı kullanıcıya görünür kılarak dengeliyoruz (sessiz değil). Ayrıca **exception metni** yoruma yazılmaz, yalnızca "çalışmadı" bilgisi — çünkü hata mesajı token/URL sızdırabilir ve PR'lar herkese açıktır (güvenlik).
