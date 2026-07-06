@@ -109,3 +109,4 @@ no network. The LLM boundary is deliberately kept out of unit tests.
 
 See [`DECISIONS.md`](./DECISIONS.md) for the reasoned ADRs (input format, structured
 output, the provider seam, the hybrid rules+LLM design, and more).
+""
