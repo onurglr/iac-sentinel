@@ -9,6 +9,13 @@ always-up-to-date review comment on the PR.
 
 ---
 
+## Example review
+
+A real comment iac-sentinel posted on a pull request — deterministic rules and the
+LLM together, each risk flagged with a severity and an actionable fix:
+
+![Example review comment posted by iac-sentinel on a PR](docs/example-review.png)
+
 ## Why it exists
 
 A `terraform plan` shows exactly what will change in your infrastructure — but on a
