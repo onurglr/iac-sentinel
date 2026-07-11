@@ -90,7 +90,22 @@ using `--comment`). Locally, put it in a `.env` file — see `.env.example`.
 
 ## Use it in your repo (as a GitHub Action)
 
-iac-sentinel ships as a composite Action, so any repo can run it in one step:
+iac-sentinel is published as a composite Action, so **any repository can adopt it in
+one step** — no install, no copied code. You generate a `plan.json` in your own
+workflow and hand it to the action:
+
+```yaml
+- uses: onurglr/iac-sentinel@v1
+  with:
+    plan-path: plan.json
+```
+
+Here it is running in a **separate consumer repository**, reviewing a real
+`terraform plan` end-to-end (three deterministic rules + one LLM-found risk):
+
+![iac-sentinel reviewing a real terraform plan in a consumer repository](docs/consumer-review.png)
+
+<b>Full workflow</b> — generate the plan, then review it:
 
 ```yaml
 name: terraform-review
