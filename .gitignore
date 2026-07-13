@@ -17,5 +17,7 @@ plan.json
 # Secrets / local env
 .env
 
+
 # Learning contract — local only, not for the public repo
 CLAUDE.md
+DECISIONS.md
